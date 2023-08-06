@@ -1,4 +1,13 @@
+/*
+Source:
+https://www.youtube.com/watch?v=zQyrwxMPm88
+we could implement userIDs if we want it to be a social site
+security features are completely forgone for now
+*/
+
 import React from "react";
+import { useState } from "react";
+import { useRef } from "react";
 import "./App.css";
 
 import firebase from "firebase/compat/app"; // Firebase SDK
@@ -21,8 +30,8 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 
-const auth = firebase.auth();
-const firestore = firebase.firestore();
+const auth = firebase.auth(); // refers to user authentication info
+const firestore = firebase.firestore(); // refers to the database being used
 
 function App() {
   // if logged in, useAuthState() returns an object with userID, email, e.t.c
@@ -31,6 +40,9 @@ function App() {
 
   return (
     <div className="App">
+      <header>
+        <SignOut />
+      </header>
       <section>
         {user ? <MainWebsite /> : <SignIn />}
       </section>
@@ -38,32 +50,108 @@ function App() {
   );
 }
 
+
+// the sign in page
 function SignIn() {
+  // signInWithGoogle stores an instance of GoogleAuthProvider in "provider", then initiates the signup process through a pop-up window
   const signInWithGoogle = () => {
     const provider = new firebase.auth.GoogleAuthProvider();
     auth.signInWithPopup(provider);
   };
+  // this is done through a button
   return (
-    <button onClick={signInWithGoogle}>Sign in with Google</button>
+    <>
+      <h1>WAKE UP IT'S JOURNALIN' TIME</h1>
+      <button onClick={signInWithGoogle}>Sign in with Google</button>
+    </>
   );
 }
 
+
+// the sign out page
 function SignOut() {
-  // only renders the signOut button if auth.currentUser is true (not null AKA signed in)
+  // only renders the signOut button if auth.currentUser is true (not null, AKA signed in)
   return auth.currentUser && (
     <button onClick={() => auth.signOut()}>Sign Out</button>
   );
 }
 
+
+// the main website (where the journaling happens)
 function MainWebsite() {
+
+  // this value persists between renders
+  // it is only used to scroll to the bottom of journal entries
+  const dummy = useRef();
+
+  // reference the firestore collection of journal entries
+  const journalsRef = firestore.collection("journal-entries");
+
+  // make a query for a subset of documents and order it as needed
+  const query = journalsRef.orderBy("createdAt").limit(25);
+
+  // listens to any updates in real time with a hook
+  // returns an array of Objects, where each object is a journal entry in the database
+  // the fields in the {} brackets will be included as properties for each object
+  const [journals] = useCollectionData(query, {idField: "id"});
+
+  // updates text with a hook
+  // text represents the body of the journal
+  const [text, setText] = useState("");
+
+  // sends a journal entry to the Firebase database
+  const sendJournalEntry = async(e) => {
+
+    // prevent the page from refreshing
+    e.preventDefault();
+
+    const { uid } = auth.currentUser;
+
+    // write a new document to the database
+    // takes a JS object as an argument
+    await journalsRef.add({
+      title: text,
+      text: text,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      uid
+    });
+    // reset the text box back to empty
+    setText("");
+
+    // scrolls the window down if the journal is out of view
+    dummy.current.scrollIntoView({ behavior: "smooth" });
+  }
+
+  // then, render the journal entries if the "journals" array is not null or undefined
+  // for each entry in "journals", the JournalEntry component is rendered
+  // the key attribute ensures that React can update and re-render the list if needed
+  // the "entry" attribute (an object) is passed to the JournalEntry component (it becomes props)
   return (
-  // where we put the code for the journals
     <>
-      <h1>Hello</h1>
-      <h2>It's journalin' time</h2>
-      <header> <SignOut /> </header>
+      <main>
+        {journals && journals.map(entry => <JournalEntry key={entry.id} entry={entry} />)}
+        <div ref={dummy}> </div>
+      </main>
+      <form onSubmit={sendJournalEntry}>
+        <input value={text} onChange={(e) => setText(e.target.value)} />
+        <button type="submit">Submit!</button>
+      </form>
     </>
-  );
+  )
+}
+
+function JournalEntry(props) {
+  // props contains the "entry" object (a journal entry, so it has the attributes defined in the Firebase console)
+  // "entry" is then destructured to extract its properties
+  const { text, title, mood, uid } = props.entry;
+  return (
+  <>
+    <p>----------------------------------------------------------------------------------------------</p>
+    <h1>{title}</h1>
+    <p>{text}</p>
+    <p>I'm feeling a solid {mood} today.</p>
+  </>
+  )
 }
 
 export default App;
