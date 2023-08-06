@@ -79,45 +79,45 @@ function SignOut() {
 
 // the main website (where the journaling happens)
 function MainWebsite() {
-
   // this value persists between renders
   // it is only used to scroll to the bottom of journal entries
   const dummy = useRef();
-
   // reference the firestore collection of journal entries
   const journalsRef = firestore.collection("journal-entries");
-
   // make a query for a subset of documents and order it as needed
-  const query = journalsRef.orderBy("createdAt").limit(25);
-
+  const query = journalsRef.orderBy("createdAt");
   // listens to any updates in real time with a hook
   // returns an array of Objects, where each object is a journal entry in the database
   // the fields in the {} brackets will be included as properties for each object
   const [journals] = useCollectionData(query, {idField: "id"});
-
-  // updates text with a hook
-  // text represents the body of the journal
+  // updates text, title, and mood with hooks
+  const [title, setTitle] = useState("");
   const [text, setText] = useState("");
+  const [mood, setMood] = useState(3);
+  // this hook is used to toggle between the "Create New Journal Entry" button and the text fields
+  const [create, setCreate] = useState(false);
+  const toggleCreate = () => {
+    setCreate(!create);
+  }
+
 
   // sends a journal entry to the Firebase database
   const sendJournalEntry = async(e) => {
-
+    toggleCreate();
     // prevent the page from refreshing
     e.preventDefault();
-
-    const { uid } = auth.currentUser;
-
     // write a new document to the database
     // takes a JS object as an argument
     await journalsRef.add({
-      title: text,
+      title: title,
       text: text,
+      mood: mood,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      uid
     });
-    // reset the text box back to empty
+    // reset the attributes back to their original states
+    setTitle("");
     setText("");
-
+    setMood(3);
     // scrolls the window down if the journal is out of view
     dummy.current.scrollIntoView({ behavior: "smooth" });
   }
@@ -129,21 +129,49 @@ function MainWebsite() {
   return (
     <>
       <main>
-        {journals && journals.map(entry => <JournalEntry key={entry.id} entry={entry} />)}
+        {journals && journals.map(entry => <PrintJournalEntry key={entry.id} entry={entry} />)}
         <div ref={dummy}> </div>
       </main>
-      <form onSubmit={sendJournalEntry}>
-        <input value={text} onChange={(e) => setText(e.target.value)} />
-        <button type="submit">Submit!</button>
-      </form>
+      <div>
+        {create ? (
+          <form onSubmit={sendJournalEntry}>
+            <div>
+              <p>Enter Journal Title:</p>
+              <textarea
+                value={title}
+                style={{ width:"500px" }}
+                onChange={(e) => setTitle(e.target.value)}>
+              </textarea>
+              <p>Enter Journal Text:</p>
+              <textarea
+                value={text}
+                style={{ width:"500px", height:"300px" }}
+                onChange={(e) => setText(e.target.value)}>
+              </textarea>
+              <div>
+                <p>How are you feeling?</p>
+                <button type="button" onClick={(e) => setMood(1)}>{"1 (depressed)"}</button>
+                <button type="button" onClick={(e) => setMood(2)}>{"2 (Sad)"}</button>
+                <button type="button" onClick={(e) => setMood(3)}>{"3 (Alright)"}</button>
+                <button type="button" onClick={(e) => setMood(4)}>{"4 (Good)"}</button>
+                <button type="button" onClick={(e) => setMood(5)}>{"5 (ECSTATIC)"}</button>
+                <p>Your mood is a {mood}</p>
+              </div>
+            </div>
+            <button type="submit" onClick={sendJournalEntry}>Submit!</button>
+          </form>
+        ) : (
+          <button onClick={toggleCreate}>Create New Journal Entry</button>
+          )}
+      </div>
     </>
   )
 }
 
-function JournalEntry(props) {
+function PrintJournalEntry(props) {
   // props contains the "entry" object (a journal entry, so it has the attributes defined in the Firebase console)
   // "entry" is then destructured to extract its properties
-  const { text, title, mood, uid } = props.entry;
+  const { text, title, mood } = props.entry;
   return (
   <>
     <p>----------------------------------------------------------------------------------------------</p>
