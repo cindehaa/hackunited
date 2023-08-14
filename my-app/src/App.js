@@ -100,10 +100,16 @@ function MainWebsite() {
     setCreate(!create);
   }
 
+  const reset = () => {
+    toggleCreate();
+    setTitle("");
+    setText("");
+    setMood(3);
+  }
+
 
   // sends a journal entry to the Firebase database
   const sendJournalEntry = async(e) => {
-    toggleCreate();
     // prevent the page from refreshing
     e.preventDefault();
     // write a new document to the database
@@ -115,9 +121,7 @@ function MainWebsite() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     // reset the attributes back to their original states
-    setTitle("");
-    setText("");
-    setMood(3);
+    reset();
     // scrolls the window down if the journal is out of view
     dummy.current.scrollIntoView({ behavior: "smooth" });
   }
@@ -159,6 +163,7 @@ function MainWebsite() {
               </div>
             </div>
             <button type="submit" onClick={sendJournalEntry}>Submit!</button>
+            <button onClick={reset}>Cancel</button>
           </form>
         ) : (
           <button onClick={toggleCreate}>Create New Journal Entry</button>
